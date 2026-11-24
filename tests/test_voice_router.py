@@ -37,7 +37,121 @@ def test_select_provider_falls_back_to_kokoro_without_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
     assert voice_router.select_provider("auto") == "kokoro"
+
+
+def test_select_provider_cascade_supports_openai_and_elevenlabs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "el-test-key")
+    assert voice_router.select_provider("auto") == "elevenlabs"
+
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-test-key")
+    assert voice_router.select_provider("auto") == "openai"
+    assert voice_router.select_provider("elevenlabs") == "elevenlabs"
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gm-test-key")
+    assert voice_router.select_provider("auto") == "gemini"
+    assert voice_router.select_provider("openai") == "openai"
+    assert voice_router.select_provider("auto", offline=True) == "kokoro"
+
+
+def test_openai_tts_stdlib_request_writes_wav_and_measures_duration(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Arrange
+    wav_sample = _write_dummy_wav(tmp_path / "sample.wav", seconds=2.5).read_bytes()
+    captured: dict[str, object] = {}
+
+    class FakeResp:
+        def __enter__(self) -> "FakeResp":
+            return self
+        def __exit__(self, *args: object) -> None:
+            pass
+        def read(self) -> bytes:
+            return wav_sample
+
+    def fake_urlopen(req, timeout: float = 60.0):
+        captured["url"] = req.full_url
+        captured["auth"] = req.get_header("Authorization")
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return FakeResp()
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-openai-123")
+    monkeypatch.setattr(voice_router.urllib.request, "urlopen", fake_urlopen)
+    out = tmp_path / "openai_out.wav"
+
+    # Act
+    res = voice_router.route_voice(
+        text="Hola mundo comercial.",
+        output_path=out,
+        provider_mode="openai",
+        lang="es",
+        mode="promo",
+    )
+
+    # Assert
+    assert res["provider"] == "openai"
+    assert res["model"] == "gpt-4o-mini-tts"
+    assert out.exists()
+    assert pytest.approx(res["audio_duration_seconds"], abs=0.05) == 2.5
+    assert captured["url"] == "https://api.openai.com/v1/audio/speech"
+    assert captured["auth"] == "Bearer sk-test-openai-123"
+    assert captured["body"]["response_format"] == "wav"
+    assert "instructions" in captured["body"]
+
+
+def test_elevenlabs_tts_stdlib_wraps_pcm_into_valid_wav(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Arrange: 1.5 seconds of 16-bit mono PCM @ 24000 Hz
+    raw_pcm = b"\x00\x00" * int(1.5 * 24000)
+    captured: dict[str, object] = {}
+
+    class FakeResp:
+        def __enter__(self) -> "FakeResp":
+            return self
+        def __exit__(self, *args: object) -> None:
+            pass
+        def read(self) -> bytes:
+            return raw_pcm
+
+    def fake_urlopen(req, timeout: float = 60.0):
+        captured["url"] = req.full_url
+        captured["api_key"] = req.get_header("Xi-api-key")
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return FakeResp()
+
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "el-secret-456")
+    monkeypatch.setenv("ELEVENLABS_VOICE_ID", "customVoice123")
+    monkeypatch.setattr(voice_router.urllib.request, "urlopen", fake_urlopen)
+    out = tmp_path / "eleven_out.wav"
+
+    # Act
+    res = voice_router.route_voice(
+        text="Prueba de estudio.",
+        output_path=out,
+        provider_mode="elevenlabs",
+        lang="es",
+        mode="promo",
+    )
+
+    # Assert
+    assert res["provider"] == "elevenlabs"
+    assert res["voice"] == "customVoice123"
+    assert out.exists()
+    assert out.read_bytes()[:4] == b"RIFF"
+    assert pytest.approx(res["audio_duration_seconds"], abs=0.05) == 1.5
+    assert "customVoice123" in str(captured["url"])
+    assert "output_format=pcm_24000" in str(captured["url"])
+    assert captured["api_key"] == "el-secret-456"
+    assert captured["body"]["model_id"] == "eleven_multilingual_v2"
 
 
 def test_byo_voice_provider_copies_and_measures_duration(tmp_path: Path) -> None:

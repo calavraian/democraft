@@ -80,11 +80,47 @@ def resolve_ffmpeg_strategy() -> str:
     return "none"
 
 
-def probe_environment() -> dict[str, Any]:
+def parse_configured_env_keys(env_file: Path | None) -> set[str]:
+    """Returns ONLY the names of non-empty keys in a local .env file (never stores secret values)."""
+    if not env_file or not env_file.is_file():
+        return set()
+    configured: set[str] = set()
+    for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        cleaned_val = value.strip().strip('"').strip("'")
+        if key and cleaned_val:
+            configured.add(key)
+    return configured
+
+
+def probe_environment(env_file: Path | None = None) -> dict[str, Any]:
     """Returns a structured capability report without exposing any secret values."""
     browser_path = find_chromium_browser()
     ffmpeg_strategy = resolve_ffmpeg_strategy()
     blender_path = find_blender()
+    uv_available = shutil.which("uv") is not None
+    file_keys = parse_configured_env_keys(env_file)
+
+    def _has_key(name: str) -> bool:
+        return bool(os.getenv(name)) or (name in file_keys)
+
+    gemini_set = _has_key("GEMINI_API_KEY")
+    openai_set = _has_key("OPENAI_API_KEY")
+    elevenlabs_set = _has_key("ELEVENLABS_API_KEY")
+
+    available_voice_providers: list[str] = []
+    if gemini_set:
+        available_voice_providers.append("gemini")
+    if openai_set:
+        available_voice_providers.append("openai")
+    if elevenlabs_set:
+        available_voice_providers.append("elevenlabs")
+    if uv_available:
+        available_voice_providers.append("kokoro")
 
     missing: list[str] = []
     if not browser_path:
@@ -101,11 +137,14 @@ def probe_environment() -> dict[str, Any]:
         "ffmpeg_strategy": ffmpeg_strategy,
         "missing_requirements": missing,
         "optional": {
-            "uv_available": shutil.which("uv") is not None,
+            "uv_available": uv_available,
             "docker_available": shutil.which("docker") is not None,
             "blender_available": blender_path is not None,
             "blender_path": blender_path,
-            "gemini_api_key_set": bool(os.getenv("GEMINI_API_KEY")),
+            "gemini_api_key_set": gemini_set,
+            "openai_api_key_set": openai_set,
+            "elevenlabs_api_key_set": elevenlabs_set,
+            "available_voice_providers": available_voice_providers,
         },
     }
 
@@ -113,22 +152,32 @@ def probe_environment() -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Probe local DemoCraft capabilities.")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON.")
+    parser.add_argument(
+        "--env-file",
+        type=Path,
+        default=None,
+        help="Optional local .env file to check TTS API key presence (never prints values).",
+    )
     args = parser.parse_args()
 
-    report = probe_environment()
+    report = probe_environment(env_file=args.env_file)
     if args.json:
         print(json.dumps(report, indent=2))
         return
 
     status = "READY" if report["core_ready"] else "MISSING REQUIREMENTS"
+    opt = report["optional"]
     print(f"DemoCraft Probe: {status}")
-    print(f"  OS / Python    : {report['os']} ({report['arch']}) / Python {report['python']}")
-    print(f"  Browser (CDP)  : {report['browser_path'] or 'NOT FOUND'}")
-    print(f"  FFmpeg runner  : {report['ffmpeg_strategy']}")
-    print(f"  Blender (v2.0) : {'available' if report['optional']['blender_available'] else 'not installed (optional)'}")
-    print(f"  Gemini API key : {'configured' if report['optional']['gemini_api_key_set'] else 'not set (optional)'}")
+    print(f"  OS / Python        : {report['os']} ({report['arch']}) / Python {report['python']}")
+    print(f"  Browser (CDP)      : {report['browser_path'] or 'NOT FOUND'}")
+    print(f"  FFmpeg runner      : {report['ffmpeg_strategy']}")
+    print(f"  Blender (v2.0)     : {'available' if opt['blender_available'] else 'not installed (optional)'}")
+    print(f"  Gemini API key     : {'configured' if opt['gemini_api_key_set'] else 'not set (optional)'}")
+    print(f"  OpenAI API key     : {'configured' if opt['openai_api_key_set'] else 'not set (optional)'}")
+    print(f"  ElevenLabs API key : {'configured' if opt['elevenlabs_api_key_set'] else 'not set (optional)'}")
+    print(f"  Voice providers    : {', '.join(opt['available_voice_providers']) or 'none (captions-only / BYO)'}")
     if report["missing_requirements"]:
-        print("  Missing        : " + ", ".join(report["missing_requirements"]))
+        print("  Missing            : " + ", ".join(report["missing_requirements"]))
 
 
 if __name__ == "__main__":

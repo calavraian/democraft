@@ -46,6 +46,7 @@ SUPPORTED_ACTIONS = {
     "pause",
     "capture",
     "record_scroll",
+    "record_drag",
 }
 
 SAFE_NAME_RE = re.compile(r"[^a-zA-Z0-9_-]+")
@@ -272,6 +273,29 @@ def compute_scroll_positions(from_y: float, to_y: float, frame_count: int) -> li
         round(from_y + (to_y - from_y) * _ease_in_out_cubic(i / (frame_count - 1)), 2)
         for i in range(frame_count)
     ]
+
+
+def compute_drag_path(
+    start_xy: tuple[float, float],
+    end_xy: tuple[float, float],
+    frame_count: int,
+    arc_dy: float = 0.0,
+) -> list[tuple[float, float]]:
+    """Generates smooth easeInOutCubic quadratic-bezier drag coordinates across `frame_count` frames."""
+    sx, sy = float(start_xy[0]), float(start_xy[1])
+    ex, ey = float(end_xy[0]), float(end_xy[1])
+    if frame_count <= 1:
+        return [(round(ex, 2), round(ey, 2))]
+    mx = (sx + ex) / 2.0
+    my = (sy + ey) / 2.0 + float(arc_dy)
+    pts: list[tuple[float, float]] = []
+    for i in range(frame_count):
+        u = _ease_in_out_cubic(i / (frame_count - 1))
+        inv = 1.0 - u
+        x = inv * inv * sx + 2.0 * inv * u * mx + u * u * ex
+        y = inv * inv * sy + 2.0 * inv * u * my + u * u * ey
+        pts.append((round(x, 2), round(y, 2)))
+    return pts
 
 
 def resolve_type_value(step: dict[str, Any]) -> str:
@@ -665,6 +689,7 @@ def execute_flow_on_cdp(
             recordings.append(
                 {
                     "step": idx,
+                    "kind": "scroll",
                     "name": name,
                     "dir": name,
                     "frames": len(positions),
@@ -673,6 +698,91 @@ def execute_flow_on_cdp(
                     "from_y": round(from_y, 1),
                     "to_y": round(to_y, 1),
                     "scroll_target": container or scroll_mode,
+                }
+            )
+
+        elif action == "record_drag":
+            name = sanitize_name(str(step.get("name", f"drag_{idx:02d}")))
+            duration_s = float(step.get("duration_s", 1.2))
+            fps = int(step.get("fps", 24))
+            frame_count = max(2, int(round(duration_s * fps)))
+            arc_dy = float(step.get("arc_dy", 0.0))
+
+            # Resolve start coordinate from element selector/text or explicit normalized point
+            if step.get("from_norm"):
+                fn = step["from_norm"]
+                sx, sy = float(fn[0]) * width, float(fn[1]) * height
+            else:
+                src_rect = _get_element_rect(cdp, selector=step.get("selector"), text=step.get("text"))
+                if src_rect is None:
+                    raise RuntimeError(
+                        f"Step #{idx} (record_drag): source element not found "
+                        f"(selector={step.get('selector')!r}, text={step.get('text')!r})."
+                    )
+                sx = float(src_rect["x"]) + float(src_rect["width"]) / 2.0
+                sy = float(src_rect["y"]) + float(src_rect["height"]) / 2.0
+
+            # Resolve target coordinate from to_selector/to_text, to_norm, or dx/dy offset
+            if step.get("to_selector") or step.get("to_text"):
+                dst_rect = _get_element_rect(cdp, selector=step.get("to_selector"), text=step.get("to_text"))
+                if dst_rect is None:
+                    raise RuntimeError(f"Step #{idx} (record_drag): target drop element not found.")
+                ex = float(dst_rect["x"]) + float(dst_rect["width"]) / 2.0
+                ey = float(dst_rect["y"]) + float(dst_rect["height"]) / 2.0
+            elif step.get("to_norm"):
+                tn = step["to_norm"]
+                ex, ey = float(tn[0]) * width, float(tn[1]) * height
+            else:
+                ex = sx + float(step.get("dx", 200.0))
+                ey = sy + float(step.get("dy", 0.0))
+
+            path_pts = compute_drag_path((sx, sy), (ex, ey), frame_count, arc_dy=arc_dy)
+            seq_dir = out_dir / name
+            seq_dir.mkdir(parents=True, exist_ok=True)
+            pointer_frames: list[dict[str, Any]] = []
+
+            # Real CDP pointer drag: move -> press -> interpolated drag -> release
+            cdp.call("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": sx, "y": sy, "buttons": 0})
+            cdp.call(
+                "Input.dispatchMouseEvent",
+                {"type": "mousePressed", "x": sx, "y": sy, "button": "left", "buttons": 1, "clickCount": 1},
+            )
+            for f_idx, (px, py) in enumerate(path_pts):
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    {"type": "mouseMoved", "x": px, "y": py, "buttons": 1},
+                )
+                _eval_js(cdp, "new Promise(r => requestAnimationFrame(r))", await_promise=True)
+                fname = f"frame_{f_idx:05d}.png"
+                _capture_png(cdp, seq_dir / fname)
+                pointer_frames.append(
+                    {
+                        "frame": f_idx,
+                        "file": f"{name}/{fname}",
+                        "cx": round(px / width, 4),
+                        "cy": round(py / height, 4),
+                        "state": "dragging",
+                    }
+                )
+            cdp.call(
+                "Input.dispatchMouseEvent",
+                {"type": "mouseReleased", "x": ex, "y": ey, "button": "left", "buttons": 0, "clickCount": 1},
+            )
+            _eval_js(cdp, "new Promise(r => requestAnimationFrame(r))", await_promise=True)
+
+            recordings.append(
+                {
+                    "step": idx,
+                    "kind": "drag",
+                    "name": name,
+                    "dir": name,
+                    "frames": len(path_pts),
+                    "fps": fps,
+                    "duration_s": round(len(path_pts) / fps, 2),
+                    "from_norm": [round(sx / width, 4), round(sy / height, 4)],
+                    "to_norm": [round(ex / width, 4), round(ey / height, 4)],
+                    "arc_norm": round(arc_dy / height, 4),
+                    "pointer_frames": pointer_frames,
                 }
             )
 

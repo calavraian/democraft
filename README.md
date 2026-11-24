@@ -1,27 +1,96 @@
-# DemoCraft (`v1.2`)
+# DemoCraft (`v1.3`)
 
-**Platform-agnostic, zero-bloat promo & demo video creator** built on the open `SKILL.md` specification (works with Antigravity, Claude Code, Codex, OpenCode, and Cursor).
+**Platform-agnostic, zero-bloat promo, commercial & feature-tutorial video creator for software products.**
+
+Built on the open `SKILL.md` specification — works natively across **Google Antigravity, Claude Code, OpenAI Codex, OpenCode, and Cursor** with **zero `npx`, zero `node_modules`, and zero global package installs**.
+
+---
 
 ## Why DemoCraft?
-- **Zero `npx` / Zero global bloat:** Core scripts run on Python 3.10+ stdlib; optional TTS/beat analysis and FFmpeg execute ephemerally via `uv` (or system binaries).
-- **Full 3-layer sound (`v1.2`):** Royalty-free multi-mood music beds (`ambient-calm`, `harmonic-simple`, `modern-clean`, `tech-spectacular`) + curated **100% CC0** SFX & procedural DSP effects + BYO audio + pluggable `VoiceRouter` (`gemini-3.8-flash-tts` → `kokoro-onnx` offline fallback) with FFmpeg auto-ducking.
-- **Hybrid live web capture (`v1.1`):** Declaratively navigate a live local web app via Chrome CDP (`capture_flow.py`) to capture Retina step screens + automatic normalized button highlight coordinates (`captures.json`) + scene-palette highlight recycling + smooth `record_scroll` frame sequences.
-- **Two built-in modes:** Fast **`promo`** teasers (`15–25s`, `+3s` grace) and calm **`tutorial`** feature walkthroughs (`45–150s`, `+10s` grace) driven by a minimal, non-rigid `storyboard.json` with optional `freeze_s` stops and wide creative latitude.
-- **Uses tools you already have:** Captures frames deterministically using your existing Chrome/Brave/Edge/Chromium browser over local CDP, and encodes MP4 via system `ffmpeg`, ephemeral `uv run --with imageio-ffmpeg`, or `docker`.
-- **Social-first & mute-ready:** Supports `vertical` (`1080x1920`), `landscape` (`1920x1080`), and `square` (`1080x1080`) with vertical Reels/TikTok/Shorts safe-zone verification, multi-language **Caption Bar** + `.srt` export, and **Frame-0 poster baking** so social thumbnails always show your strongest frame.
-- **Modern 2D + Pseudo-3D depth:** HTML/CSS 3D perspective mockups + animated Canvas wireframe-mesh backgrounds — zero Blender required in v1.0.
+- **Zero Bloat, Maximum Portability:** Core scripts use Python 3.10+ stdlib only (~720 KB total including audio assets). Uses the Chromium browser you already have (`Chrome`, `Brave`, `Edge`, or `Chromium`) via pure-stdlib CDP, and encodes MP4 via system `ffmpeg`, ephemeral `uv run --with imageio-ffmpeg`, or `docker`.
+- **Two Editorial Modes:**
+  - **`promo`** (`15–35s` target, `45s` soft cap + `5s` grace): crisp commercial teasers & feature spotlights.
+  - **`tutorial`** (`45–120s` target, `150s` soft cap + `10s` grace): calm step-by-step walkthroughs with optional `freeze_s` pauses.
+- **Hybrid Live Web App Capture (`capture_flow.py`):** Declaratively navigate local web apps via `flow.json` to capture Retina step screenshots, normalized highlight coordinates (`captures.json`), scene-palette highlight recycling (zero green-on-green clashes), smooth `record_scroll`, and selective live `record_drag` sequences (for tactical boards, Kanban, canvas editors, sliders).
+- **3-Layer Broadcast Audio & Multi-Provider VoiceRouter:**
+  - **Music Beds:** 4 royalty-free procedural moods (`ambient-calm`, `harmonic-simple`, `modern-clean`, `tech-spectacular`) with beat grids + BYO track beat analyzer (`analyze_beats.py`).
+  - **SFX:** Curated **100% CC0 Public Domain** UI/impact/typing library (zero attribution required) + procedural DSP synth (`sfx_synth.py`).
+  - **Pluggable Voiceover (`voice_router.py`):** **Gemini 3.8 TTS**, **OpenAI TTS (`gpt-4o-mini-tts`)**, **ElevenLabs (`eleven_multilingual_v2`)**, offline **`$0` Kokoro ONNX**, **BYO narration**, or **mute captions-only** — with automatic FFmpeg `sidechaincompress` music ducking under voice.
+- **5 Selectable Deterministic 3D Canvas Backgrounds (`backgrounds.js`):** `wireframe-wave`, `floating-polyhedra`, `orbital-rings`, `depth-grid-particles`, `soft-aurora-mesh`, or `none`.
+- **Social-Ready Deliverables:** `landscape` (`1920×1080`), `vertical` (`1080×1920` Reels/TikTok/Shorts with safe-zone QA), or `square` (`1080×1080`), baked **Frame-0 poster (`poster.jpg`)**, multi-language **Caption Bar + `.srt`**, and grounded **`share-copy.txt`**.
 
-## Quick Verification
+---
+
+## Prerequisites
+- **Python 3.10+** (standard library only for core workflow)
+- **Chromium-based browser** already installed (`Google Chrome`, `Brave`, `Edge`, or `Chromium`)
+- **One FFmpeg runner:** `ffmpeg` on `PATH`, [`uv`](https://docs.astral.sh/uv/) *(recommended — zero global installs)*, or `docker`
+
+Verify your environment without installing anything:
 ```bash
-# 1. Check detected local capabilities
-python3 skills/democraft/scripts/probe.py --json
-
-# 2. Run unit test suite
-pytest skills/democraft/tests -v
+python3 scripts/probe.py
 ```
 
-## Roadmap
-- **v1.0 (Completed):** Core visual engine (HTML/CSS 3D + wireframe mesh), minimal `storyboard.json`, Caption Bar + `.srt`, Chrome CDP stdlib capture, zero-bloat FFmpeg + Frame-0 bake.
-- **v1.1 (Completed):** Shared `cdp_client.py` + declarative live web app navigation & hybrid capture (`capture_flow.py`: Retina stills + normalized highlight boxes + scene-palette recycling + smooth `record_scroll`).
-- **v1.2 (Current):** Multi-mood royalty-free music beds, curated 100% CC0 + procedural SFX, BYO beat sync, `VoiceRouter` (`gemini-3.8-flash-tts` → `kokoro-onnx` fallback), and 3-layer FFmpeg auto-ducking mixer.
-- **v2.0:** Optional decoupled Blender 3D / real wireframe EEVEE add-on.
+---
+
+## Installation (Pick Your AI Coding Agent)
+
+Clone the skill into your preferred agent's skills directory (or symlink it):
+
+```bash
+# Google Antigravity
+git clone <repo-url> ~/.gemini/config/skills/democraft
+
+# Claude Code
+git clone <repo-url> ~/.claude/skills/democraft
+
+# OpenAI Codex
+git clone <repo-url> ~/.codex/skills/democraft
+
+# Cursor / OpenCode (project-local or user skills folder)
+git clone <repo-url> .agents/skills/democraft
+```
+
+Then ask your agent naturally (or invoke `/democraft`):
+> *"Create a 30-second commercial promo for my app running at localhost:3000 highlighting the tactical board."*
+
+DemoCraft will automatically probe your machine, run a brief preflight interview (format, voice preference, visual style, output folder), and guide you safely through every step.
+
+---
+
+## Optional Voiceover Providers & Safe API Key Setup
+
+You **do not need any API key** to use DemoCraft (captions-only, BYO audio, and offline `Kokoro` TTS all work for `$0`).
+
+If you want expressive cloud voiceover, DemoCraft supports:
+
+| Provider | Env Variable | Model | Implementation |
+| :--- | :--- | :--- | :--- |
+| **Google Gemini** | `GEMINI_API_KEY` | `gemini-3.8-flash-tts` | Ephemeral `uv` (`google-genai>=3.0.0`) |
+| **OpenAI** | `OPENAI_API_KEY` | `gpt-4o-mini-tts` | Pure Python stdlib REST (zero deps) |
+| **ElevenLabs** | `ELEVENLABS_API_KEY` *(+ optional `ELEVENLABS_VOICE_ID`)* | `eleven_multilingual_v2` | Pure Python stdlib REST (zero deps) |
+| **Kokoro (Offline)** | *(none — `$0`)* | `kokoro-onnx` FP16 | Ephemeral `uv` fallback |
+
+### Safe Key Handling (Never Paste Keys in Chat)
+Copy `assets/templates/democraft.env.example` into a **gitignored** `.env.local` file (`chmod 600 .env.local`) and uncomment **only** the provider you want:
+
+```dotenv
+# Save in a gitignored .env.local (never commit, never paste in chat)
+GEMINI_API_KEY=AIzaSy_YOUR_KEY_HERE
+# OPENAI_API_KEY=sk-proj-YOUR_KEY_HERE
+# ELEVENLABS_API_KEY=sk_YOUR_KEY_HERE
+# ELEVENLABS_VOICE_ID=JBFqnCBsd6RMkjVDRZzb
+```
+
+Then pass `--env-file /path/to/.env.local` to `probe.py` and `voice_router.py` — keys are loaded strictly in memory and never logged or read into chat context.
+
+---
+
+## Running Unit Tests
+```bash
+pytest tests -v
+```
+
+## License
+- Code, scripts, templates, and documentation: **MIT License** ([LICENSE](./LICENSE))
+- Bundled sound effects (`assets/audio/sfx/`): **CC0 1.0 Public Domain** ([assets/audio/LICENSE-CC0.md](./assets/audio/LICENSE-CC0.md))

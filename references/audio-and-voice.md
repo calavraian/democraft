@@ -1,4 +1,4 @@
-# DemoCraft Audio, SFX & Voiceover Reference (`v1.2`)
+# DemoCraft Audio, SFX & Multi-Provider Voiceover Reference (`v1.3`)
 
 DemoCraft composes sound in **three clean, zero-bloat layers**: **Music Bed** + **Timed SFX** + **Voiceover** (or mute-friendly **Caption Bar**).
 
@@ -9,12 +9,12 @@ Choose a built-in royalty-free procedural mood OR pass any user-supplied track (
 | :--- | :---: | :--- | :--- |
 | `ambient-calm` | `80` | Warm stereo pads, subtle sub breath, gentle shimmer | Calm `tutorial` walkthroughs & explainers |
 | `harmonic-simple` | `96` | Electric-piano-like chords, soft warm pulse | Polished SaaS, B2B product demos |
-| `modern-clean` | `114` | Punchy kick, crisp hats, syncopated plucked chords | Social commercials, GoalPad feature promos |
-| `tech-spectacular` | `124` | Energetic electro drive, pulsing 16th bass, bright pads | Flagship launches, high-energy tech reveals |
+| `modern-clean` | `114` | Punchy kick, crisp hats, syncopated plucked chords | Social commercials, feature spotlights |
+| `tech-spectacular` | `124` | Energetic electro drive, pulsing 16th bass, bright pads | Flagship launches, high-energy reveals |
 
 ```bash
 python3 <skill-dir>/scripts/music_bed.py modern-clean \
-  --duration 20 --output <output-dir>/work/music.wav \
+  --duration 30 --output <output-dir>/work/music.wav \
   --beats-out <output-dir>/work/music.beats.json
 ```
 
@@ -34,30 +34,54 @@ All bundled SFX under `assets/audio/sfx/` are **CC0 1.0 Public Domain** (zero at
 python3 <skill-dir>/scripts/sfx_synth.py whoosh --duration 0.35 -o <output-dir>/work/whoosh.wav
 ```
 
-**Mixing Discipline:** Less is more—use `3–6` subtle SFX cues (`0.0–0.08s` before visual impact). When voiceover is active, keep SFX subdued (`0.22–0.40` or pass `--sfx-scale 0.55`) so chimes, flashes, and transitions never compete with the narrator.
+**Mixing Discipline:** Less is more—use `3–8` subtle SFX cues (`0.0–0.08s` before visual impact). When voiceover is active, keep SFX subdued (`0.22–0.40` or pass `--sfx-scale 0.45`) so chimes, flashes, and transitions never compete with the narrator.
 
-## 3. Pluggable VoiceRouter Cascade (`scripts/voice_router.py`)
-1. `--provider none`: captions-only (no voice track).
-2. `--voice-file <path>`: BYO narration (measures duration automatically for *audio-first timing*).
-3. `GEMINI_API_KEY` set (`--provider auto` or `gemini`): **`gemini-3.8-flash-tts`** via `v1beta` `interactions.create` + structured `speech_metadata` (studio-grade ES/EN commercial & tutorial prosody, 0 MB local models).
-4. Offline fallback (no API key or `--offline`): **`kokoro-onnx`** via ephemeral `uv` (offline, `$0`).
+## 3. Pluggable Multi-Provider VoiceRouter (`scripts/voice_router.py`)
 
-```bash
-python3 <skill-dir>/scripts/voice_router.py \
-  --from-file <output-dir>/work/storyboard.json --lang es --mode promo \
-  --output <output-dir>/work/voice.wav
-```
+| Priority (`auto`) | Provider | Env Variable | Default Model / Runtime | Notes |
+| :---: | :--- | :--- | :--- | :--- |
+| `1` | **`byo`** | `--voice-file <path>` | User audio file | Measures duration automatically for *audio-first timing*. |
+| `2` | **`gemini`** | `GEMINI_API_KEY` | `gemini-3.8-flash-tts` (`uv` ephemeral) | Studio-grade ES/EN commercial & tutorial prosody via `speech_metadata`. |
+| `3` | **`openai`** | `OPENAI_API_KEY` | `gpt-4o-mini-tts` (**pure Python stdlib REST**) | Supports expressive tone `instructions`; zero extra SDKs or `uv` needed. |
+| `4` | **`elevenlabs`** | `ELEVENLABS_API_KEY` | `eleven_multilingual_v2` (**pure Python stdlib REST**) | Studio / custom cloned voices (optional `ELEVENLABS_VOICE_ID`); zero extra SDKs. |
+| `5` | **`kokoro`** | *(none — `$0` offline)* | `kokoro-onnx` FP16 (`uv` ephemeral) | Automatic offline fallback when no cloud key is set or `--offline` is passed. |
+| `—` | **`none`** | *(none)* | Mute / captions-only | Clean Caption Bar + `.srt` sidecars without voiceover. |
+
+*(Note: Anthropic / Claude does not offer a native TTS audio generation API.)*
+
+### Safe API Key Setup Protocol (NEVER Paste Keys in Chat)
+When a user selects a cloud provider (`gemini`, `openai`, or `elevenlabs`) and `probe.py --json` reports its key as `false`:
+1. **Explicitly advise the user NOT to paste their API key into the chat.**
+2. Instruct them to put **only** the provider key they chose into a local **gitignored** `.env` or `.env.local` file (copying `assets/templates/democraft.env.example`) and lock permissions with `chmod 600`:
+   ```dotenv
+   # Example: save inside a gitignored .env or .env.local (never commit to Git)
+   # Uncomment ONLY the provider you want to use:
+
+   GEMINI_API_KEY=AIzaSy_YOUR_KEY_HERE
+   # OPENAI_API_KEY=sk-proj-YOUR_KEY_HERE
+   # ELEVENLABS_API_KEY=sk_YOUR_KEY_HERE
+   # ELEVENLABS_VOICE_ID=JBFqnCBsd6RMkjVDRZzb
+   ```
+   *(Alternatively, they can export the variable in their terminal shell: `export OPENAI_API_KEY="sk-proj-..."`.)*
+3. Pass the path directly via `--env-file` so `voice_router.py` loads the key strictly in process memory — **the AI agent must never read, display, or log the `.env` file**:
+   ```bash
+   # Auto-cascade or explicit provider (gemini | openai | elevenlabs | kokoro | none)
+   python3 <skill-dir>/scripts/voice_router.py \
+     --from-file <output-dir>/work/storyboard.json --lang es --mode promo \
+     --provider auto --env-file /path/to/.env.local \
+     --output <output-dir>/work/voice.wav
+   ```
 
 **Audio-First Timing Rule:** Generate voiceover *before* locking final scene durations. Check `audio_duration_seconds` and align scene cuts cleanly to the spoken narration (staying within the mode's soft cap + grace margin).
 
 ## 4. Three-Layer Mixing & Auto-Ducking (`scripts/audio_mixer.py`)
-Automatically ducks background music (`0.38` → `0.19`) via FFmpeg `sidechaincompress` whenever voiceover speaks, mixes subtle timed SFX cues (`--sfx-scale 0.55` when voice is active), applies smooth fade-in/out, and outputs a broadcast-clean `mix.wav` ready for `encode_video.py --audio`:
+Automatically ducks background music (`0.38` → `0.19`) via FFmpeg `sidechaincompress` whenever voiceover speaks, mixes subtle timed SFX cues (`--sfx-scale 0.45` when voice is active), applies smooth fade-in/out, and outputs a broadcast-clean `mix.wav` ready for `encode_video.py --audio`:
 
 ```bash
 python3 <skill-dir>/scripts/audio_mixer.py \
   --music <output-dir>/work/music.wav \
   --voice <output-dir>/work/voice.wav \
   --sfx-cues <output-dir>/work/sfx_cues.json \
-  --music-volume 0.38 --duck-volume 0.19 --sfx-scale 0.55 \
-  --duration 21 --output <output-dir>/work/mix.wav
+  --music-volume 0.38 --duck-volume 0.19 --sfx-scale 0.45 \
+  --duration 30 --output <output-dir>/work/mix.wav
 ```

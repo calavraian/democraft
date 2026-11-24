@@ -176,3 +176,71 @@ def test_recommend_highlight_falls_back_cleanly_on_empty_palette() -> None:
     theme = capture_flow.recommend_highlight_color([], ["#FFFFFF"])
     assert theme["source"] == "fallback"
     assert theme["recommended_hex"].startswith("#")
+
+
+def test_compute_drag_path_uses_curved_bezier_with_smooth_easing() -> None:
+    pts = capture_flow.compute_drag_path((100.0, 200.0), (500.0, 200.0), frame_count=5, arc_dy=-60.0)
+    assert len(pts) == 5
+    assert pts[0] == (100.0, 200.0)
+    assert pts[-1] == (500.0, 200.0)
+    # Midpoint lifts upward due to negative arc_dy
+    assert pts[2][0] == pytest.approx(300.0, abs=0.5)
+    assert pts[2][1] < 200.0
+
+
+def test_execute_flow_record_drag_dispatches_pointer_events_and_records_trajectory(
+    tmp_path: Path,
+) -> None:
+    fake_png_b64 = base64.b64encode(b"\x89PNG\r\n\x1a\nFAKE").decode("ascii")
+    mouse_events: list[dict[str, Any]] = []
+
+    class FakeCDP:
+        def call(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+            p = params or {}
+            if method == "Input.dispatchMouseEvent":
+                mouse_events.append(p)
+                return {}
+            if method == "Page.captureScreenshot":
+                return {"data": fake_png_b64}
+            if method == "Runtime.evaluate":
+                expr = p.get("expression", "")
+                if "getBoundingClientRect" in expr:
+                    return {"result": {"value": {"x": 200, "y": 300, "width": 80, "height": 80}}}
+                return {"result": {"value": True}}
+            return {}
+
+    flow = {
+        "base_url": "http://127.0.0.1:3000",
+        "viewport": [1440, 900],
+        "device_scale": 1,
+        "steps": [
+            {"action": "goto", "path": "/board"},
+            {
+                "action": "record_drag",
+                "name": "drag_player",
+                "selector": "#player-9",
+                "to_norm": [0.75, 0.40],
+                "arc_dy": -40,
+                "duration_s": 0.4,
+                "fps": 10,
+            },
+        ],
+    }
+
+    manifest = capture_flow.execute_flow_on_cdp(
+        cdp=FakeCDP(), flow=flow, out_dir=tmp_path, allow_remote=False
+    )
+
+    drag_frames = sorted((tmp_path / "drag_player").glob("frame_*.png"))
+    assert len(drag_frames) == 4
+    kinds = [ev["type"] for ev in mouse_events]
+    assert "mousePressed" in kinds
+    assert "mouseMoved" in kinds
+    assert "mouseReleased" in kinds
+    assert len(manifest["recordings"]) == 1
+    rec = manifest["recordings"][0]
+    assert rec["kind"] == "drag"
+    assert rec["frames"] == 4
+    assert len(rec["pointer_frames"]) == 4
+    assert rec["from_norm"] == [round(240 / 1440, 4), round(340 / 900, 4)]
+    assert rec["to_norm"] == [0.75, 0.4]
