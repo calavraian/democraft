@@ -56,6 +56,22 @@ def test_minimal_promo_storyboard_validates_without_optional_fields(tmp_path: Pa
     assert report["errors"] == []
 
 
+def test_promo_supports_up_to_45s_with_5s_grace() -> None:
+    # Arrange: 35s is comfortably within target; 48s triggers soft grace warning (<=50s)
+    ok_35 = {"name": "spot-35", "mode": "promo", "scenes": [{"id": "s1", "duration_s": 35.0}]}
+    grace_48 = {"name": "spot-48", "mode": "promo", "scenes": [{"id": "s1", "duration_s": 48.0}]}
+
+    # Act
+    r35 = storyboard.validate_storyboard(ok_35)
+    r48 = storyboard.validate_storyboard(grace_48)
+
+    # Assert
+    assert r35["duration_status"] == "within_target"
+    assert r48["valid"] is True
+    assert r48["duration_status"] == "within_grace"
+    assert r48["suggest_split"] is False
+
+
 def test_tutorial_grace_margin_allows_slight_overrun_with_warning() -> None:
     # Arrange: 155s exceeds 150s soft cap but stays inside +10s grace margin (160s)
     data = {

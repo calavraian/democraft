@@ -18,8 +18,8 @@ from captions import CaptionCue, cues_to_dicts, export_srt, validate_cues
 
 # Mode duration policies: (soft_cap_s, grace_margin_s)
 MODE_DURATION_LIMITS: dict[str, tuple[float, float]] = {
-    "promo": (25.0, 3.0),      # target 15-25s, internal grace up to 28s
-    "tutorial": (150.0, 10.0), # target 45-150s (2m30s), internal grace up to 160s
+    "promo": (45.0, 5.0),      # target 15-35s, soft cap 45s, internal grace up to 50s
+    "tutorial": (150.0, 10.0), # target 45-120s, soft cap 150s (2m30s), internal grace up to 160s
 }
 
 VALID_FREEZE_MODES = ("before_action", "after_action", "hold")
@@ -79,7 +79,7 @@ def validate_storyboard(data: dict[str, Any], lang: str | None = None) -> dict[s
         errors.append(
             f"Unsupported mode '{mode}'. Choose from: {', '.join(MODE_DURATION_LIMITS)}."
         )
-        soft_cap, grace = (25.0, 3.0)
+        soft_cap, grace = (45.0, 5.0)
     else:
         soft_cap, grace = MODE_DURATION_LIMITS[mode]
 

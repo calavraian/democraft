@@ -3,8 +3,8 @@
 ## 1. Modes, Duration Policies & Pacing Laws
 | Mode | Target Window | Soft Cap | Internal Grace Margin | If Over Grace |
 | :--- | :---: | :---: | :---: | :--- |
-| **`promo`** (commercial / social teaser) | `15–25s` | `25s` | `+3s` (up to `28s`) | Tighten copy/cuts |
-| **`tutorial`** (feature demo / walkthrough) | `45–120s` | `150s` (`2m 30s`) | `+10s` (up to `160s`) | Advise splitting into **Part 1 / Part 2** instead of hard-cutting mid-thought |
+| **`promo`** (commercial / social / feature spotlight) | `15–35s` | `45s` | `+5s` (up to `50s`) | Tighten copy/cuts |
+| **`tutorial`** (feature demo / walkthrough) | `45–120s` (`2m`) | `150s` (`2m 30s`) | `+10s` (up to `160s`) | Advise splitting into **Part 1 / Part 2** instead of hard-cutting mid-thought |
 
 - **`promo` Shape:** Hook (`2–3s`) → Reveal (`2–4s`) → 2–3 sharp highlights (`3–4s` each) → Outro (`2–4s`).
 - **`tutorial` Shape:** Goal intro (`4–6s`) → Numbered step-by-step walkthrough (`Step 1 → Step 2 → Step 3`) with calm `freeze_s` pauses (`before_action` / `after_action`) so viewers can read and spot the active control → Recap / takeaway (`4–6s`).

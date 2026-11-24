@@ -28,6 +28,12 @@ window.__DEMOCRAFT_TOGGLE_SAFE_ZONES__ = function (enabled) { /* ... */ };
 2. **Explicit Scene Visibility:** Inactive scenes MUST use `display: none` (never `visibility: hidden`).
 3. **Relative Assets Only:** Serve all logos, fonts, and screenshots from the composition folder (`assets/...`). `render_frames.py` mounts the HTML's parent directory on a local `127.0.0.1` loopback HTTP server. Never reference external hotlinks or `/Users/...` absolute paths.
 4. **Exact Viewport Dimensions:** Set `html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; }` and design responsively for `1080x1920` (`vertical`), `1920x1080` (`landscape`), or `1080x1080` (`square`).
-5. **Pseudo-3D & Wireframe-Mesh Aesthetics (Zero Blender Required):**
+5. **Pseudo-3D & Selectable Canvas Backgrounds (`assets/templates/backgrounds.js`, Zero Blender Required):**
    - Use CSS 3D containers (`perspective: 1400px; transform-style: preserve-3d;`) with gentle `rotateX`, `rotateY`, `translateZ`, and layered elevation shadows for UI cards and device frames.
-   - Use a deterministic `<canvas>` 3D perspective wireframe-mesh layer (projected 3D grid wave / tactical pitch lines / floating geometric wireframe) drawn directly inside `__DEMOCRAFT_SEEK__(t)` for modern depth.
+   - DemoCraft ships 5 built-in deterministic `<canvas>` background styles in `assets/templates/backgrounds.js` (`DemoCraftBg.draw(ctx, w, h, t, style, { accent, secondary })`)—or author custom Canvas/CSS scenes freely:
+     - `wireframe-wave`: 3D perspective undulating wireframe terrain/grid.
+     - `floating-polyhedra`: rotating 3D wireframe cubes & octahedra floating in perspective depth.
+     - `orbital-rings`: tilted 3D concentric rings with glowing orbital nodes.
+     - `depth-grid-particles`: 3D parallax constellation particles with soft proximity links.
+     - `soft-aurora-mesh`: organic slow-drifting radial aurora halos (zero lines—ideal for calm tutorials).
+     - `none`: clean solid/gradient brand canvas.

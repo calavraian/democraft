@@ -9,14 +9,16 @@ description: >-
 
 # DemoCraft: Modular Promo & Tutorial Video Creator
 
-Turn a software project into a crisp **commercial teaser (`promo`, 15–25s)** or **guided feature walkthrough (`tutorial`, 45–150s)** with baked Frame-0 poster (`jpg`), `.srt` subtitles, and `share-copy.txt` — using **zero `npx` and zero global installs**.
+Turn a software project into a crisp **commercial promo (`promo`, 15–45s)** or **guided feature walkthrough (`tutorial`, 45–150s)** with baked Frame-0 poster (`jpg`), `.srt` subtitles, and `share-copy.txt` — using **zero `npx` and zero global installs**.
 
 ## Options
-- `--mode`: `promo` (`15–25s`, `+3s` grace) | `tutorial` (`45–150s`, `+10s` grace before suggesting a multi-part split). Default: `promo`.
+- `--mode`: `promo` (`15–35s` target, `45s` soft cap + `5s` grace) | `tutorial` (`45–120s` target, `150s` soft cap + `10s` grace before suggesting a multi-part split). Default: `promo`.
 - `--format`: `vertical` (`1080x1920`), `landscape` (`1920x1080`), `square` (`1080x1080`).
+- `--bg`: `wireframe-wave` | `floating-polyhedra` | `orbital-rings` | `depth-grid-particles` | `soft-aurora-mesh` | `none` (`assets/templates/backgrounds.js`).
 - `--tone`: `polished`, `launch`, `app-store`, `tutorial`, `cinematic`, `minimal`, `playful`.
 - `--lang`: Caption/copy language code (e.g., `es`, `en`). Omit `--captions` at render time for clean video + `.srt` sidecars.
-- `--audio`: Optional BYO music/voiceover track path.
+- `--voice`: `auto` (Gemini 3.8 TTS if `GEMINI_API_KEY` set → Kokoro offline fallback) | `gemini` | `kokoro` | `none` (captions-only) | `--voice-file <path>` (BYO).
+- `--music`: Mood (`ambient-calm`, `harmonic-simple`, `modern-clean`, `tech-spectacular`), BYO file path, or `none`.
 
 Write all outputs into `<output-dir>` with intermediates in `<output-dir>/work/`. Never modify target project files.
 
@@ -43,6 +45,7 @@ Write all outputs into `<output-dir>` with intermediates in `<output-dir>/work/`
    python3 <skill-dir>/scripts/storyboard.py validate <output-dir>/work/storyboard.json --lang <lang>
    python3 <skill-dir>/scripts/storyboard.py export-captions <output-dir>/work/storyboard.json --lang <lang> --out-srt <output-dir>/captions-<lang>.srt
    ```
+3. *(Audio-First — Optional Voice, Music & SFX)* Follow `references/audio-and-voice.md`: generate voiceover (`voice_router.py`, aligning scene durations to `audio_duration_seconds`), prepare a mood music bed (`music_bed.py`) or BYO track (`analyze_beats.py`), add timed CC0/procedural SFX (`sfx_synth.py`), and mix into `<output-dir>/work/mix.wav` with `audio_mixer.py` (automatic music ducking under voice).
 
 ### Step 3: Compose & Visually Audit Stills
 1. Build `<output-dir>/work/composition/index.html` following `references/composition-contract.md` (starter at `assets/templates/starter.html`):
@@ -78,3 +81,4 @@ Write all outputs into `<output-dir>` with intermediates in `<output-dir>/work/`
 - `references/tones-and-captions.md` — Tone presets (`tutorial` included), minimal `storyboard.json` schema, Caption Bar.
 - `references/composition-contract.md` — Deterministic `window.__DEMOCRAFT_SEEK__(t)` & CSS 3D / wireframe-mesh spec.
 - `references/web-capture.md` — Declarative live web app navigation (`flow.json`), normalized cues, and `record_scroll`.
+- `references/audio-and-voice.md` — Multi-mood music beds, curated CC0/procedural SFX, VoiceRouter, and 3-layer auto-ducking mix.
