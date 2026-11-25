@@ -33,9 +33,49 @@ python3 scripts/probe.py
 
 ---
 
-## Installation (Pick Your AI Coding Agent)
+## Installation (Pick Your Preferred Method)
 
-Clone the skill into your preferred agent's skills directory (or symlink it):
+Modern `SKILL.md` agents (**Antigravity, Claude Code, Codex, Cursor, OpenCode**) automatically register any folder containing `SKILL.md` inside their skills directory — no manual config registry required.
+
+### Option A: Install with Your AI Agent (1 Prompt — Zero Manual Commands)
+
+Simply paste this prompt into **Antigravity, Claude Code, Codex, Cursor, or OpenCode**:
+
+> *"Install the DemoCraft skill from `https://github.com/calavraian/democraft.git` following its README instructions, register it in my skills directory, and run `scripts/probe.py` to confirm my environment is ready."*
+
+<details>
+<summary><strong>Agent Installation Protocol (Machine-Readable Steps for AI Agents)</strong></summary>
+
+1. Clone `https://github.com/calavraian/democraft.git` into a persistent local directory (or directly into your agent's skills directory).
+2. Run the stdlib registrar (zero `npx`, zero pip installs):
+   ```bash
+   python3 scripts/install.py --agent auto
+   ```
+   *(Pass `--agent antigravity`, `--agent claude`, `--agent codex`, `--agent cursor`, `--agent all`, or `--project <repo>` as appropriate; add `--dry-run` first if you want to preview paths.)*
+3. Verify local capabilities without installing global packages or reading secrets:
+   ```bash
+   python3 scripts/probe.py --json
+   ```
+4. Report registration path + readiness (`core_ready`, `browser_path`, `ffmpeg_strategy`, `available_voice_providers`). Never ask the user to paste API keys in chat — point them to `assets/templates/democraft.env.example` if they later want cloud TTS.
+
+</details>
+
+### Option B: One-Command CLI Installer (Auto-Detects All Your Agents)
+
+Clone once and let `scripts/install.py` register DemoCraft across every installed agent (`--symlink` tracks `git pull`; use `--mode copy` for a standalone copy):
+
+```bash
+git clone https://github.com/calavraian/democraft.git ~/.local/share/democraft
+python3 ~/.local/share/democraft/scripts/install.py --agent auto
+```
+
+Useful installer flags:
+- `--dry-run` — preview target directories without touching disk
+- `--agent antigravity|claude|codex|cursor|all` — target specific agent(s)
+- `--project /path/to/repo` — install project-locally in `.agents/skills/democraft`
+- `--uninstall` — cleanly unregister without deleting the cloned repo
+
+### Option C: Direct `git clone` per Agent
 
 ```bash
 # Google Antigravity
@@ -47,8 +87,8 @@ git clone https://github.com/calavraian/democraft.git ~/.claude/skills/democraft
 # OpenAI Codex
 git clone https://github.com/calavraian/democraft.git ~/.codex/skills/democraft
 
-# Cursor / OpenCode (project-local or user skills folder)
-git clone https://github.com/calavraian/democraft.git .agents/skills/democraft
+# Cursor / OpenCode (user-level or project-local .agents/skills/democraft)
+git clone https://github.com/calavraian/democraft.git ~/.agents/skills/democraft
 ```
 
 Then ask your agent naturally (or invoke `/democraft`):
