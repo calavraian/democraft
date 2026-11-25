@@ -1,6 +1,24 @@
-# DemoCraft (`v1.3.2`)
+<p align="center">
+  <img src="assets/brand/democraft-icon.svg" alt="DemoCraft Logo" width="76" height="76" />
+</p>
 
-**Platform-agnostic, zero-bloat promo, commercial & feature-tutorial video creator for software products.**
+<h1 align="center">DemoCraft</h1>
+
+<p align="center">
+  <strong>Platform-agnostic, zero-bloat promo, commercial &amp; feature-tutorial video creator for software products.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/calavraian/democraft/releases"><img src="https://img.shields.io/github/v/release/calavraian/democraft?color=10B981&style=flat-square" alt="Latest Release" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2B%20CC0-0EA5E9?style=flat-square" alt="License: MIT + CC0" /></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B%20stdlib-3776AB?style=flat-square" alt="Python 3.10+ stdlib" />
+  <img src="https://img.shields.io/badge/zero%20npx-no%20global%20installs-10B981?style=flat-square" alt="Zero npx" />
+  <img src="https://img.shields.io/badge/SKILL.md-Antigravity%20%7C%20Claude%20%7C%20Codex%20%7C%20Cursor-6366F1?style=flat-square" alt="Compatible AI Agents" />
+</p>
+
+<p align="center">
+  <img src="assets/brand/social-preview.png" alt="DemoCraft — Zero-bloat promo and tutorial video creator" width="100%" />
+</p>
 
 Built on the open `SKILL.md` specification — works natively across **Google Antigravity, Claude Code, OpenAI Codex, OpenCode, and Cursor** with **zero `npx`, zero `node_modules`, and zero global package installs**.
 
