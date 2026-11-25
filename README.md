@@ -39,16 +39,16 @@ Clone the skill into your preferred agent's skills directory (or symlink it):
 
 ```bash
 # Google Antigravity
-git clone <repo-url> ~/.gemini/config/skills/democraft
+git clone https://github.com/calavraian/democraft.git ~/.gemini/config/skills/democraft
 
 # Claude Code
-git clone <repo-url> ~/.claude/skills/democraft
+git clone https://github.com/calavraian/democraft.git ~/.claude/skills/democraft
 
 # OpenAI Codex
-git clone <repo-url> ~/.codex/skills/democraft
+git clone https://github.com/calavraian/democraft.git ~/.codex/skills/democraft
 
 # Cursor / OpenCode (project-local or user skills folder)
-git clone <repo-url> .agents/skills/democraft
+git clone https://github.com/calavraian/democraft.git .agents/skills/democraft
 ```
 
 Then ask your agent naturally (or invoke `/democraft`):
