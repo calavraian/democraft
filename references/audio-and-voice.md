@@ -1,4 +1,4 @@
-# DemoCraft Audio, SFX & Multi-Provider Voiceover Reference (`v1.3`)
+# DemoCraft Audio, SFX & Multi-Provider Voiceover Reference (`v1.3.2`)
 
 DemoCraft composes sound in **three clean, zero-bloat layers**: **Music Bed** + **Timed SFX** + **Voiceover** (or mute-friendly **Caption Bar**).
 

@@ -1,4 +1,4 @@
-# DemoCraft (`v1.3`)
+# DemoCraft (`v1.3.2`)
 
 **Platform-agnostic, zero-bloat promo, commercial & feature-tutorial video creator for software products.**
 
@@ -7,16 +7,16 @@ Built on the open `SKILL.md` specification — works natively across **Google An
 ---
 
 ## Why DemoCraft?
-- **Zero Bloat, Maximum Portability:** Core scripts use Python 3.10+ stdlib only (~720 KB total including audio assets). Uses the Chromium browser you already have (`Chrome`, `Brave`, `Edge`, or `Chromium`) via pure-stdlib CDP, and encodes MP4 via system `ffmpeg`, ephemeral `uv run --with imageio-ffmpeg`, or `docker`.
+- **Zero Bloat, Clean Disk Footprint:** Core scripts run on Python 3.10+ stdlib (~720 KB total including audio assets). Uses your existing Chromium browser (`Chrome`, `Brave`, `Edge`, or `Chromium`), encodes via `ffmpeg` / `uv` / `docker`, and automatically cleans up heavy temporary frames and derived audio after encoding so projects never pile up gigabytes of clutter.
 - **Two Editorial Modes:**
   - **`promo`** (`15–35s` target, `45s` soft cap + `5s` grace): crisp commercial teasers & feature spotlights.
   - **`tutorial`** (`45–120s` target, `150s` soft cap + `10s` grace): calm step-by-step walkthroughs with optional `freeze_s` pauses.
-- **Hybrid Live Web App Capture (`capture_flow.py`):** Declaratively navigate local web apps via `flow.json` to capture Retina step screenshots, normalized highlight coordinates (`captures.json`), scene-palette highlight recycling (zero green-on-green clashes), smooth `record_scroll`, and selective live `record_drag` sequences (for tactical boards, Kanban, canvas editors, sliders).
-- **3-Layer Broadcast Audio & Multi-Provider VoiceRouter:**
-  - **Music Beds:** 4 royalty-free procedural moods (`ambient-calm`, `harmonic-simple`, `modern-clean`, `tech-spectacular`) with beat grids + BYO track beat analyzer (`analyze_beats.py`).
-  - **SFX:** Curated **100% CC0 Public Domain** UI/impact/typing library (zero attribution required) + procedural DSP synth (`sfx_synth.py`).
-  - **Pluggable Voiceover (`voice_router.py`):** **Gemini 3.8 TTS**, **OpenAI TTS (`gpt-4o-mini-tts`)**, **ElevenLabs (`eleven_multilingual_v2`)**, offline **`$0` Kokoro ONNX**, **BYO narration**, or **mute captions-only** — with automatic FFmpeg `sidechaincompress` music ducking under voice.
-- **5 Selectable Deterministic 3D Canvas Backgrounds (`backgrounds.js`):** `wireframe-wave`, `floating-polyhedra`, `orbital-rings`, `depth-grid-particles`, `soft-aurora-mesh`, or `none`.
+- **Hybrid Live Web App Capture:** Navigates local web apps declaratively (`flow.json`) for Retina step screens, scene-matched highlights (zero color clashes), smooth real scroll captures, and selective live drag-and-drop recordings (tactical boards, Kanban, canvas editors, sliders).
+- **3-Layer Audio & Multi-Provider Voiceover:**
+  - **Music Beds:** 4 built-in royalty-free moods (`ambient-calm`, `harmonic-simple`, `modern-clean`, `tech-spectacular`) synthesized on demand without duplicating files, plus support for your own tracks (BYO).
+  - **SFX:** Curated **100% CC0 Public Domain** UI/impact/typing library (zero attribution required) + on-the-fly synthesized effects.
+  - **Pluggable Voiceover:** **Google Gemini**, **OpenAI**, **ElevenLabs** *(including free-tier automatic fallback)*, **`$0` offline Kokoro**, **BYO narration**, or **captions-only** — with automatic music ducking under speech.
+- **5 Selectable 3D Canvas Backgrounds:** `wireframe-wave`, `floating-polyhedra`, `orbital-rings`, `depth-grid-particles`, `soft-aurora-mesh`, or `none`.
 - **Social-Ready Deliverables:** `landscape` (`1920×1080`), `vertical` (`1080×1920` Reels/TikTok/Shorts with safe-zone QA), or `square` (`1080×1080`), baked **Frame-0 poster (`poster.jpg`)**, multi-language **Caption Bar + `.srt`**, and grounded **`share-copy.txt`**.
 
 ---
@@ -104,12 +104,15 @@ You **do not need any API key** to use DemoCraft (captions-only, BYO audio, and 
 
 If you want expressive cloud voiceover, DemoCraft supports:
 
-| Provider | Env Variable | Model | Implementation |
-| :--- | :--- | :--- | :--- |
-| **Google Gemini** | `GEMINI_API_KEY` | `gemini-3.8-flash-tts` | Ephemeral `uv` (`google-genai>=3.0.0`) |
-| **OpenAI** | `OPENAI_API_KEY` | `gpt-4o-mini-tts` | Pure Python stdlib REST (zero deps) |
-| **ElevenLabs** | `ELEVENLABS_API_KEY` *(+ optional `ELEVENLABS_VOICE_ID`)* | `eleven_multilingual_v2` | Pure Python stdlib REST (zero deps) |
-| **Kokoro (Offline)** | *(none — `$0`)* | `kokoro-onnx` FP16 | Ephemeral `uv` fallback |
+| Provider | Env Variable | Notes |
+| :--- | :--- | :--- |
+| **Google Gemini** | `GEMINI_API_KEY` | Expressive commercial & tutorial styles in ES/EN (`gemini-3.8-flash-tts`) |
+| **OpenAI** | `OPENAI_API_KEY` | Expressive tone directives (`gpt-4o-mini-tts`), zero extra installs |
+| **ElevenLabs** | `ELEVENLABS_API_KEY` *(+ optional `ELEVENLABS_VOICE_ID`)* | Studio & custom voices (`eleven_multilingual_v2`); auto-falls back to a free-tier premade voice if a library voice requires a paid plan |
+| **Kokoro (Offline)** | *(none — `$0`)* | Automatic local offline fallback (`kokoro-onnx`) |
+| **BYO / Mute** | *(none — `$0`)* | Bring your own audio (`--voice-file`) or render captions-only |
+
+*(Note: Anthropic / Claude does not provide a native voice TTS API; Claude Code users can pair DemoCraft with Gemini, OpenAI, ElevenLabs, free offline Kokoro, or BYO audio.)*
 
 ### Safe Key Handling (Never Paste Keys in Chat)
 Copy `assets/templates/democraft.env.example` into a **gitignored** `.env.local` file (`chmod 600 .env.local`) and uncomment **only** the provider you want:
