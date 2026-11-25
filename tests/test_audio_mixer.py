@@ -83,3 +83,23 @@ def test_build_mix_args_rejects_empty_sources(tmp_path: Path) -> None:
             voice_path=None,
             sfx_events=[],
         )
+
+
+def test_resolve_sfx_reference_synthesizes_inline_synth_spec_ephemerally(tmp_path: Path) -> None:
+    wav_path = audio_mixer.resolve_sfx_reference("synth:whoosh:0.30", synth_dir=tmp_path)
+    assert wav_path.is_file()
+    assert wav_path.parent == tmp_path
+    assert wav_path.read_bytes()[:4] == b"RIFF"
+
+
+def test_resolve_music_source_synthesizes_builtin_mood_ephemerally(tmp_path: Path) -> None:
+    wav_path = audio_mixer.resolve_music_source(
+        music_path=None,
+        music_mood="harmonic-simple",
+        duration_s=3.0,
+        temp_dir=tmp_path,
+    )
+    assert wav_path is not None
+    assert wav_path.is_file()
+    assert wav_path.parent == tmp_path
+    assert wav_path.read_bytes()[:4] == b"RIFF"

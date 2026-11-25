@@ -154,6 +154,60 @@ def test_elevenlabs_tts_stdlib_wraps_pcm_into_valid_wav(
     assert captured["body"]["model_id"] == "eleven_multilingual_v2"
 
 
+def test_elevenlabs_free_tier_402_auto_falls_back_to_premade_voice(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import io
+    import urllib.error
+
+    raw_pcm = b"\x00\x00" * int(1.0 * 24000)
+    requested_urls: list[str] = []
+
+    class FakeResp:
+        def __enter__(self) -> "FakeResp":
+            return self
+        def __exit__(self, *args: object) -> None:
+            pass
+        def read(self) -> bytes:
+            return raw_pcm
+
+    def fake_urlopen(req, timeout: float = 60.0):
+        requested_urls.append(req.full_url)
+        if "paidLibraryVoice999" in req.full_url:
+            err_body = json.dumps(
+                {
+                    "detail": {
+                        "code": "paid_plan_required",
+                        "message": "Free users cannot use library voices via the API.",
+                    }
+                }
+            ).encode("utf-8")
+            raise urllib.error.HTTPError(
+                req.full_url, 402, "Payment Required", {}, io.BytesIO(err_body)
+            )
+        return FakeResp()
+
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "el-free-key")
+    monkeypatch.setenv("ELEVENLABS_VOICE_ID", "paidLibraryVoice999")
+    monkeypatch.setattr(voice_router.urllib.request, "urlopen", fake_urlopen)
+    out = tmp_path / "fallback_out.wav"
+
+    res = voice_router.route_voice(
+        text="Hola prueba plan gratis.",
+        output_path=out,
+        provider_mode="elevenlabs",
+        lang="es",
+        mode="promo",
+    )
+
+    assert len(requested_urls) == 2
+    assert res["provider"] == "elevenlabs"
+    assert res["voice"] == voice_router.DEFAULT_VOICES[("elevenlabs", "es")]
+    assert res["fallback_applied"] is True
+    assert "warning" in res
+    assert out.exists()
+
+
 def test_byo_voice_provider_copies_and_measures_duration(tmp_path: Path) -> None:
     src = _write_dummy_wav(tmp_path / "my_voice.wav", seconds=3.5)
     out = tmp_path / "out_voice.wav"

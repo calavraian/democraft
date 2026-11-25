@@ -16,11 +16,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from encode_video import resolve_ffmpeg_strategy, run_ffmpeg
+from music_bed import MOOD_SPECS, generate_music_bed
+from sfx_synth import generate_sfx
 
 BUNDLED_SFX_DIR = Path(__file__).resolve().parents[1] / "assets" / "audio" / "sfx"
 
@@ -34,8 +37,20 @@ class SfxEvent:
     volume: float = 0.35
 
 
-def resolve_sfx_reference(ref: str) -> Path:
-    """Resolves either a local file path or a relative bundled CC0 SFX reference."""
+def resolve_sfx_reference(ref: str, synth_dir: Path | None = None) -> Path:
+    """Resolves a bundled CC0 asset, inline `synth:<preset>[:duration]` cue, or local file path."""
+    if ref.startswith("synth:"):
+        parts = ref.split(":")
+        preset = parts[1].strip() if len(parts) >= 2 else ""
+        dur = float(parts[2]) if len(parts) >= 3 and parts[2].strip() else None
+        cache_dir = synth_dir or Path(tempfile.gettempdir()) / "democraft_sfx_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        dur_tag = f"{dur:.2f}".replace(".", "p") if dur is not None else "default"
+        out_wav = cache_dir / f"synth_{preset}_{dur_tag}.wav"
+        if not out_wav.is_file():
+            generate_sfx(preset=preset, output_path=out_wav, duration_s=dur)
+        return out_wav.resolve()
+
     direct = Path(ref)
     if direct.is_file():
         return direct.resolve()
@@ -43,8 +58,27 @@ def resolve_sfx_reference(ref: str) -> Path:
     if bundled.is_file():
         return bundled
     raise FileNotFoundError(
-        f"SFX file not found: '{ref}' (checked path and bundled CC0 library at {BUNDLED_SFX_DIR})."
+        f"SFX file not found: '{ref}' (checked synth:<preset>, path, and bundled CC0 library at {BUNDLED_SFX_DIR})."
     )
+
+
+def resolve_music_source(
+    music_path: Path | None,
+    music_mood: str | None,
+    duration_s: float,
+    temp_dir: Path,
+) -> Path | None:
+    """Resolves either a BYO music file or synthesizes a built-in mood ephemerally (zero work/ bloat)."""
+    if music_path is not None:
+        return music_path
+    if not music_mood or music_mood.strip().lower() == "none":
+        return None
+    mood = music_mood.strip().lower()
+    if mood not in MOOD_SPECS:
+        raise ValueError(f"Unknown music mood '{music_mood}'. Choose from: {', '.join(MOOD_SPECS)}.")
+    out_wav = temp_dir / f"ephemeral_{mood}.wav"
+    generate_music_bed(mood=mood, duration_s=duration_s, output_wav=out_wav)
+    return out_wav
 
 
 def build_mix_args(
@@ -165,7 +199,7 @@ def build_mix_args(
     return args
 
 
-def load_sfx_cue_list(cues_path: Path) -> list[SfxEvent]:
+def load_sfx_cue_list(cues_path: Path, synth_dir: Path | None = None) -> list[SfxEvent]:
     """Loads a JSON array of `{"sfx": "...", "at_s": 1.2, "volume": 0.35}` events."""
     raw = json.loads(cues_path.read_text(encoding="utf-8"))
     items = raw.get("sfx", raw) if isinstance(raw, dict) else raw
@@ -173,7 +207,7 @@ def load_sfx_cue_list(cues_path: Path) -> list[SfxEvent]:
     for item in items:
         events.append(
             SfxEvent(
-                path=resolve_sfx_reference(str(item["sfx"])),
+                path=resolve_sfx_reference(str(item["sfx"]), synth_dir=synth_dir),
                 at_s=float(item["at_s"]),
                 volume=float(item.get("volume", 0.35)),
             )
@@ -223,26 +257,39 @@ def main() -> None:
     parser.add_argument("--output", "-o", type=Path, required=True, help="Output mixed WAV path.")
     parser.add_argument("--duration", type=float, required=True, help="Total mix duration (s).")
     parser.add_argument("--music", type=Path, default=None, help="Background music track (WAV/MP3).")
+    parser.add_argument(
+        "--music-mood",
+        default=None,
+        help="Synthesize a built-in mood ephemerally (ambient-calm|harmonic-simple|modern-clean|tech-spectacular) without saving music.wav.",
+    )
     parser.add_argument("--voice", type=Path, default=None, help="Voiceover track (WAV/MP3).")
-    parser.add_argument("--sfx-cues", type=Path, default=None, help="JSON list of timed SFX cues.")
+    parser.add_argument("--sfx-cues", type=Path, default=None, help="JSON list of timed SFX cues (supports CC0 paths and synth:<preset>[:dur]).")
     parser.add_argument("--music-volume", type=float, default=0.38)
     parser.add_argument("--duck-volume", type=float, default=0.19)
-    parser.add_argument("--sfx-scale", type=float, default=1.0, help="Global multiplier for SFX levels (e.g. 0.55 under voice).")
+    parser.add_argument("--sfx-scale", type=float, default=1.0, help="Global multiplier for SFX levels (e.g. 0.45 under voice).")
     parser.add_argument("--voice-delay", type=float, default=0.25)
     args = parser.parse_args()
 
-    events = load_sfx_cue_list(args.sfx_cues) if args.sfx_cues else []
-    summary = mix_audio_tracks(
-        output_path=args.output,
-        duration_s=args.duration,
-        music_path=args.music,
-        voice_path=args.voice,
-        sfx_events=events,
-        music_volume=args.music_volume,
-        duck_volume=args.duck_volume,
-        sfx_scale=args.sfx_scale,
-        voice_delay_s=args.voice_delay,
-    )
+    with tempfile.TemporaryDirectory(prefix="democraft_mix_") as tmp:
+        tmp_dir = Path(tmp)
+        resolved_music = resolve_music_source(
+            music_path=args.music,
+            music_mood=args.music_mood,
+            duration_s=args.duration,
+            temp_dir=tmp_dir,
+        )
+        events = load_sfx_cue_list(args.sfx_cues, synth_dir=tmp_dir) if args.sfx_cues else []
+        summary = mix_audio_tracks(
+            output_path=args.output,
+            duration_s=args.duration,
+            music_path=resolved_music,
+            voice_path=args.voice,
+            sfx_events=events,
+            music_volume=args.music_volume,
+            duck_volume=args.duck_volume,
+            sfx_scale=args.sfx_scale,
+            voice_delay_s=args.voice_delay,
+        )
     print(json.dumps(summary, indent=2))
 
 

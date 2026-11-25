@@ -179,6 +179,79 @@ def run_ffmpeg(ffmpeg_args: list[str], strategy: str | None = None) -> None:
         )
 
 
+PRESERVED_EDITABLE_WAVS = {"voice.wav"}
+DISPOSABLE_WORK_FILES = {"mix.wav", "music.wav", "music.beats.json", "captions.json"}
+
+
+def cleanup_work_artifacts(
+    frames_dir: Path,
+    mode: str = "none",
+    audio_path: Path | None = None,
+) -> dict[str, object]:
+    """Reclaims disk space after successful MP4 encoding without touching final deliverables.
+
+    Modes:
+      - `none`          : Keep all intermediates.
+      - `frames`        : Delete only the heavy raw PNG `frames_dir`.
+      - `keep-editable` : Delete `frames/`, sibling `stills/`, derived `mix.wav`, regenerable
+                          `music.wav`/beats/procedural SFX WAVs; preserve `voice.wav`,
+                          blueprints (`storyboard.json`, `flow.json`, `sfx_cues.json`), and `composition/`.
+      - `all`           : Delete the entire `work/` parent folder (or `frames_dir`), leaving
+                          strictly the final deliverables (`demo.mp4`, `poster.jpg`, `.srt`, copy).
+    """
+    chosen = mode.strip().lower()
+    if chosen not in ("none", "frames", "keep-editable", "all"):
+        raise ValueError(f"Unsupported clean-work mode '{mode}'. Choose none|frames|keep-editable|all.")
+
+    removed: list[str] = []
+    if chosen == "none":
+        return {"mode": chosen, "removed": removed}
+
+    resolved_frames = frames_dir.resolve()
+    work_dir = resolved_frames.parent
+
+    if chosen == "all":
+        target = work_dir if work_dir.name == "work" else resolved_frames
+        if target.exists():
+            shutil.rmtree(target)
+            removed.append(str(target))
+        return {"mode": chosen, "removed": removed}
+
+    if resolved_frames.exists():
+        shutil.rmtree(resolved_frames)
+        removed.append(str(resolved_frames))
+
+    if chosen == "frames":
+        return {"mode": chosen, "removed": removed}
+
+    # mode == "keep-editable"
+    stills_dir = work_dir / "stills"
+    if stills_dir.is_dir():
+        shutil.rmtree(stills_dir)
+        removed.append(str(stills_dir))
+
+    if audio_path is not None:
+        resolved_audio = audio_path.resolve()
+        if resolved_audio.is_file() and resolved_audio.parent == work_dir and resolved_audio.name not in PRESERVED_EDITABLE_WAVS:
+            resolved_audio.unlink()
+            removed.append(str(resolved_audio))
+
+    for fname in DISPOSABLE_WORK_FILES:
+        candidate = work_dir / fname
+        if candidate.is_file():
+            candidate.unlink()
+            removed.append(str(candidate))
+
+    # Remove regenerable procedural SFX WAVs (e.g. whoosh_soft.wav) while keeping voice.wav
+    if work_dir.is_dir():
+        for wav in sorted(work_dir.glob("*.wav")):
+            if wav.name not in PRESERVED_EDITABLE_WAVS:
+                wav.unlink()
+                removed.append(str(wav))
+
+    return {"mode": chosen, "removed": removed}
+
+
 def encode_demo_video(
     frames_dir: Path,
     output_path: Path,
@@ -186,6 +259,7 @@ def encode_demo_video(
     poster_time: float | None = None,
     poster_out: Path | None = None,
     audio_path: Path | None = None,
+    clean_work: str = "none",
 ) -> dict[str, object]:
     """Encodes PNG frames into MP4 and optionally extracts + bakes Frame-0 poster."""
     frames = validate_frames_dir(frames_dir)
@@ -197,7 +271,7 @@ def encode_demo_video(
 
     if poster_time is None:
         run_ffmpeg(build_encode_args(frames_dir, output_path, fps=fps, audio_path=audio_path), strategy)
-        return {
+        summary: dict[str, object] = {
             "strategy": strategy,
             "frames": len(frames),
             "fps": fps,
@@ -205,26 +279,32 @@ def encode_demo_video(
             "poster_jpg": None,
             "size_kb": round(output_path.stat().st_size / 1024.0, 1),
         }
+    else:
+        poster_target = poster_out or output_path.with_suffix(".jpg")
+        poster_target.parent.mkdir(parents=True, exist_ok=True)
 
-    poster_target = poster_out or output_path.with_suffix(".jpg")
-    poster_target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="democraft_encode_") as tmp:
+            raw_mp4 = Path(tmp) / "raw.mp4"
+            run_ffmpeg(build_encode_args(frames_dir, raw_mp4, fps=fps, audio_path=audio_path), strategy)
+            run_ffmpeg(build_poster_extract_args(raw_mp4, poster_time, poster_target), strategy)
+            run_ffmpeg(build_frame0_bake_args(raw_mp4, poster_target, output_path), strategy)
 
-    with tempfile.TemporaryDirectory(prefix="democraft_encode_") as tmp:
-        raw_mp4 = Path(tmp) / "raw.mp4"
-        run_ffmpeg(build_encode_args(frames_dir, raw_mp4, fps=fps, audio_path=audio_path), strategy)
-        run_ffmpeg(build_poster_extract_args(raw_mp4, poster_time, poster_target), strategy)
-        run_ffmpeg(build_frame0_bake_args(raw_mp4, poster_target, output_path), strategy)
+        summary = {
+            "strategy": strategy,
+            "frames": len(frames),
+            "fps": fps,
+            "duration_seconds": round(len(frames) / fps, 2),
+            "output_mp4": str(output_path),
+            "poster_jpg": str(poster_target),
+            "poster_time": poster_time,
+            "size_kb": round(output_path.stat().st_size / 1024.0, 1),
+        }
 
-    return {
-        "strategy": strategy,
-        "frames": len(frames),
-        "fps": fps,
-        "duration_seconds": round(len(frames) / fps, 2),
-        "output_mp4": str(output_path),
-        "poster_jpg": str(poster_target),
-        "poster_time": poster_time,
-        "size_kb": round(output_path.stat().st_size / 1024.0, 1),
-    }
+    if clean_work != "none" and output_path.is_file() and output_path.stat().st_size > 0:
+        summary["cleanup"] = cleanup_work_artifacts(
+            frames_dir=frames_dir, mode=clean_work, audio_path=audio_path
+        )
+    return summary
 
 
 def main() -> None:
@@ -235,6 +315,12 @@ def main() -> None:
     parser.add_argument("--poster-time", type=float, default=None, help="Timestamp (s) to bake as Frame 0.")
     parser.add_argument("--poster-out", type=Path, default=None, help="Optional poster .jpg path.")
     parser.add_argument("--audio", type=Path, default=None, help="Optional BYO audio track.")
+    parser.add_argument(
+        "--clean-work",
+        choices=("none", "frames", "keep-editable", "all"),
+        default="none",
+        help="Auto-cleanup intermediates after MP4 succeeds (recommended: keep-editable).",
+    )
     args = parser.parse_args()
 
     summary = encode_demo_video(
@@ -244,6 +330,7 @@ def main() -> None:
         poster_time=args.poster_time,
         poster_out=args.poster_out,
         audio_path=args.audio,
+        clean_work=args.clean_work,
     )
     print(json.dumps(summary, indent=2))
 

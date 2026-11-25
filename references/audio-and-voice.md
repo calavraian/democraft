@@ -28,7 +28,7 @@ All bundled SFX under `assets/audio/sfx/` are **CC0 1.0 Public Domain** (zero at
 - **`ui/`**: `click_001.ogg`, `click_003.ogg`, `drop_001.ogg`, `drop_002.ogg`, `switch_001.ogg`, `switch_004.ogg`, `select_008.ogg`, `bong_001.ogg`
 - **`impacts/`**: `impactSoft_medium_000.ogg`, `impactSoft_medium_001.ogg`, `impactBell_heavy_000.ogg`, `impactGlass_light_001.ogg`
 - **`typing/`**: `keypress-001.wav` – `keypress-008.wav` (randomize per keystroke)
-- **Procedural (`sfx_synth.py`, exact duration):** `whoosh`, `riser`, `laser_tech`, `pop`, `click`, `sub_drop`, `success_chime`
+- **Procedural (`sfx_synth.py` or inline `synth:<preset>[:dur]` inside `sfx_cues.json`):** `whoosh`, `riser`, `laser_tech`, `pop`, `click`, `sub_drop`, `success_chime` — using `"sfx": "synth:whoosh:0.38"` in `sfx_cues.json` synthesizes ephemerally in `/tmp` with zero duplicate `.wav` files in `work/`.
 
 ```bash
 python3 <skill-dir>/scripts/sfx_synth.py whoosh --duration 0.35 -o <output-dir>/work/whoosh.wav
@@ -75,13 +75,14 @@ When a user selects a cloud provider (`gemini`, `openai`, or `elevenlabs`) and `
 **Audio-First Timing Rule:** Generate voiceover *before* locking final scene durations. Check `audio_duration_seconds` and align scene cuts cleanly to the spoken narration (staying within the mode's soft cap + grace margin).
 
 ## 4. Three-Layer Mixing & Auto-Ducking (`scripts/audio_mixer.py`)
-Automatically ducks background music (`0.38` → `0.19`) via FFmpeg `sidechaincompress` whenever voiceover speaks, mixes subtle timed SFX cues (`--sfx-scale 0.45` when voice is active), applies smooth fade-in/out, and outputs a broadcast-clean `mix.wav` ready for `encode_video.py --audio`:
+Automatically ducks background music (`0.38` → `0.19`) via FFmpeg `sidechaincompress` whenever voiceover speaks, synthesizes `--music-mood` and `synth:<preset>[:dur]` SFX cues ephemerally in `/tmp` (zero duplicate `.wav` clutter in `work/`), applies smooth fade-in/out, and outputs `mix.wav` ready for `encode_video.py --audio --clean-work keep-editable`:
 
 ```bash
 python3 <skill-dir>/scripts/audio_mixer.py \
-  --music <output-dir>/work/music.wav \
+  --music-mood modern-clean \
   --voice <output-dir>/work/voice.wav \
   --sfx-cues <output-dir>/work/sfx_cues.json \
   --music-volume 0.38 --duck-volume 0.19 --sfx-scale 0.45 \
   --duration 30 --output <output-dir>/work/mix.wav
 ```
+*(Pass `--music path/to/custom.mp3` instead of `--music-mood` for BYO tracks.)*

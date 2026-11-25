@@ -117,3 +117,58 @@ def test_validate_frames_dir_rejects_empty_or_missing(tmp_path: Path) -> None:
     empty_dir.mkdir()
     with pytest.raises(ValueError, match="No PNG frames found"):
         encode_video.validate_frames_dir(empty_dir)
+
+
+def test_cleanup_work_artifacts_keep_editable_prunes_derived_and_keeps_sources(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    frames = work / "frames"
+    stills = work / "stills"
+    comp = work / "composition"
+    for d in (frames, stills, comp):
+        d.mkdir(parents=True)
+    (frames / "frame_00000.png").write_bytes(b"png")
+    (stills / "still_00.png").write_bytes(b"png")
+    (comp / "index.html").write_text("<html></html>", encoding="utf-8")
+    (work / "storyboard.json").write_text("{}", encoding="utf-8")
+    (work / "sfx_cues.json").write_text("[]", encoding="utf-8")
+    (work / "voice.wav").write_bytes(b"paid-tts")
+    (work / "mix.wav").write_bytes(b"derived-mix")
+    (work / "music.wav").write_bytes(b"regenerable-music")
+    (work / "music.beats.json").write_text("{}", encoding="utf-8")
+    (work / "captions.json").write_text("{}", encoding="utf-8")
+    (work / "whoosh_soft.wav").write_bytes(b"regenerable-sfx")
+
+    report = encode_video.cleanup_work_artifacts(
+        frames_dir=frames, mode="keep-editable", audio_path=work / "mix.wav"
+    )
+
+    assert report["mode"] == "keep-editable"
+    # Heavy/regenerable files removed
+    assert not frames.exists()
+    assert not stills.exists()
+    assert not (work / "mix.wav").exists()
+    assert not (work / "music.wav").exists()
+    assert not (work / "music.beats.json").exists()
+    assert not (work / "captions.json").exists()
+    assert not (work / "whoosh_soft.wav").exists()
+    # Paid TTS & editable blueprints preserved!
+    assert (work / "voice.wav").exists()
+    assert (work / "storyboard.json").exists()
+    assert (work / "sfx_cues.json").exists()
+    assert (comp / "index.html").exists()
+
+
+def test_cleanup_work_artifacts_all_removes_entire_work_directory(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    frames = work / "frames"
+    frames.mkdir(parents=True)
+    (frames / "frame_00000.png").write_bytes(b"png")
+    (work / "voice.wav").write_bytes(b"wav")
+    final_mp4 = tmp_path / "demo.mp4"
+    final_mp4.write_bytes(b"mp4")
+
+    report = encode_video.cleanup_work_artifacts(frames_dir=frames, mode="all")
+
+    assert report["mode"] == "all"
+    assert not work.exists()
+    assert final_mp4.exists()

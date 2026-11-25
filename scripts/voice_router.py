@@ -388,8 +388,13 @@ def _run_elevenlabs_tts(
     output_path: Path,
     voice_id: str,
     model: str = "eleven_multilingual_v2",
+    _allow_free_fallback: bool = True,
 ) -> dict[str, Any]:
-    """Synthesizes speech via ElevenLabs REST API (pcm_24000 -> WAV) using pure Python stdlib."""
+    """Synthesizes speech via ElevenLabs REST API (pcm_24000 -> WAV) using pure Python stdlib.
+
+    If a custom/library voice returns HTTP 402 `paid_plan_required` on a free-tier account,
+    automatically falls back once to the included multilingual premade voice with a clear warning.
+    """
     api_key = os.getenv("ELEVENLABS_API_KEY")
     if not api_key:
         raise ValueError(
@@ -423,6 +428,26 @@ def _run_elevenlabs_tts(
             pcm_bytes = resp.read()
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:400]
+        premade_default = DEFAULT_VOICES[("elevenlabs", "en")]
+        is_free_library_block = (
+            exc.code == 402
+            and ("paid_plan_required" in detail or "library voices" in detail.lower())
+        )
+        if _allow_free_fallback and is_free_library_block and voice_id.strip() != premade_default:
+            fallback_res = _run_elevenlabs_tts(
+                text=text,
+                output_path=output_path,
+                voice_id=premade_default,
+                model=model,
+                _allow_free_fallback=False,
+            )
+            fallback_res["fallback_applied"] = True
+            fallback_res["requested_voice"] = voice_id
+            fallback_res["warning"] = (
+                f"Voice '{voice_id}' requires a paid ElevenLabs plan; automatically fell back "
+                f"to free-tier premade multilingual voice '{premade_default}'."
+            )
+            return fallback_res
         raise RuntimeError(f"ElevenLabs TTS HTTP {exc.code}: {detail}") from None
     elapsed = time.perf_counter() - t0
 

@@ -48,7 +48,7 @@ Write all outputs into `<output-dir>` with intermediates in `<output-dir>/work/`
    python3 <skill-dir>/scripts/storyboard.py validate <output-dir>/work/storyboard.json --lang <lang>
    python3 <skill-dir>/scripts/storyboard.py export-captions <output-dir>/work/storyboard.json --lang <lang> --out-srt <output-dir>/captions-<lang>.srt
    ```
-3. *(Audio-First — Optional Voice, Music & SFX)* Follow `references/audio-and-voice.md`: generate voiceover (`voice_router.py [--env-file <path>]`, aligning scene cuts to `audio_duration_seconds`), prepare a mood music bed (`music_bed.py`) or BYO track (`analyze_beats.py`), add subtle timed CC0/procedural SFX (`sfx_synth.py`), and mix into `<output-dir>/work/mix.wav` with `audio_mixer.py` (auto-ducking music under voice).
+3. *(Audio-First — Optional Voice, Music & SFX)* Follow `references/audio-and-voice.md`: generate voiceover (`voice_router.py [--env-file <path>]`, aligning scene cuts to `audio_duration_seconds`), then mix directly with `audio_mixer.py --music-mood <mood>` (or BYO `--music`) + `--sfx-cues` (CC0 references or inline `synth:<preset>[:dur]` — zero duplicate WAV clutter in `work/`).
 
 ### Step 3: Compose & Visually Audit Stills
 1. Build `<output-dir>/work/composition/index.html` following `references/composition-contract.md` (starter at `assets/templates/starter.html`):
@@ -70,14 +70,14 @@ Write all outputs into `<output-dir>` with intermediates in `<output-dir>/work/`
      --out-dir <output-dir>/work/frames --format <format> --duration <sec> --fps 30 \
      --captions <output-dir>/work/storyboard.json --lang <lang>
    ```
-2. Encode `H.264 yuv420p` MP4 and bake the strongest settled frame onto Frame 0 (`poster.jpg`):
+2. Encode `H.264 yuv420p` MP4, bake the strongest settled frame onto Frame 0 (`poster.jpg`), and prune heavy/derived intermediates (`--clean-work keep-editable` deletes raw `frames/`, `stills/`, and derived WAVs while keeping editable `voice.wav` + `composition/`; pass `--clean-work all` once finalized to remove `work/` completely):
    ```bash
    python3 <skill-dir>/scripts/encode_video.py <output-dir>/work/frames \
      --output <output-dir>/demo.mp4 --fps 30 \
      --poster-time <best_settled_sec> --poster-out <output-dir>/poster.jpg \
-     [--audio <output-dir>/work/mix.wav]
+     [--audio <output-dir>/work/mix.wav] --clean-work keep-editable
    ```
-3. Write `<output-dir>/share-copy.txt` (1–3 grounded sentences), remind user if temporary work files can be cleaned, and report deliverables.
+3. Write `<output-dir>/share-copy.txt` (1–3 grounded sentences), report deliverables, and ask if the user wants to keep the compact editable `work/` (~5–8 MB) or remove it completely.
 
 ## References
 - `references/editorial-laws.md` — `promo` vs `tutorial` duration/grace rules, safe zones, grounding, security.
