@@ -1,15 +1,19 @@
 ---
 name: democraft
 description: >-
-  Platform-agnostic promo, demo, and feature-tutorial video creator for software products.
-  Generates landscape, vertical (Reels/TikTok/Shorts), or square videos with HTML/CSS 3D
-  motion, selectable 3D Canvas backgrounds, live Chrome CDP capture, multi-provider voiceover
-  (Gemini, OpenAI, ElevenLabs, Kokoro offline, BYO), auto-ducking audio mix, and zero-bloat FFmpeg.
+  AI agent skill for Claude Code, Google Antigravity, Cursor, Codex, and OpenCode that turns
+  any web app or software product into ready-to-post ads, commercials, product demos, and
+  feature tutorials. Opens live apps via Chrome CDP for autonomous browser navigation
+  (clicks, tabs, modals, scroll, drag-and-drop), 2x Retina web app screenshots, and live
+  screen recording, then adds multi-provider AI voiceover (Gemini, OpenAI, ElevenLabs,
+  Kokoro offline, BYO), auto-ducking music & CC0 SFX, HTML/CSS 3D motion, 5 selectable
+  3D Canvas backgrounds, and zero-bloat FFmpeg export (landscape 16:9, vertical 9:16
+  Reels/TikTok/Shorts, or 1:1 square — clean or subtitled).
 ---
 
-# DemoCraft: Modular Promo & Tutorial Video Creator
+# DemoCraft: AI Agent Skill for Web App Ads, Product Demos & Video Tutorials
 
-Turn any software product into a crisp **commercial promo (`promo`, 15–45s)** or **guided feature walkthrough (`tutorial`, 45–150s)** with baked Frame-0 poster (`jpg`), `.srt` subtitles, and `share-copy.txt` — using **zero `npx` and zero global installs**.
+Give your AI coding agent autonomous browser capture and video production tools to turn any software product or running web app into a crisp **commercial ad / product demo (`promo`, 15–45s)** or **guided feature walkthrough (`tutorial`, 45–150s)** with baked Frame-0 poster (`jpg`), optional on-screen subtitles + `.srt`, and `share-copy.txt` — using **zero `npx` and zero global installs**.
 
 ## Options
 - `--mode`: `promo` (`15–35s` target, `45s` soft cap + `5s` grace) | `tutorial` (`45–120s` target, `150s` soft cap + `10s` grace before suggesting a multi-part split). Default: `promo`.
